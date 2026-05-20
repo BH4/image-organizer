@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from datetime import datetime
 
+from bin.display import show_image
 from bin.find_images import image_finder
 from bin.find_date import img_date
 
@@ -26,10 +27,6 @@ def separators(data):
     minima = x_axis[mi]
 
     return minima
-
-
-def view_image(filename):
-    4
 
 
 if __name__ == '__main__':

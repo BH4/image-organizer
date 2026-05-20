@@ -2,10 +2,13 @@ import os
 import hashlib
 from collections import defaultdict
 
-from PIL import Image
 
-picture_extensions = set(['jpg', 'jpeg', '.png'])
+picture_extensions = set(['jpg', 'jpeg', 'png'])
 BLOCKSIZE = 65536
+
+
+def path_equal(path1, path2):
+    return os.path.normcase(os.path.normpath(path1)) == os.path.normcase(os.path.normpath(path2))
 
 
 def ext_finder(start_folder):
@@ -27,7 +30,7 @@ def ext_finder(start_folder):
     return ext_list
 
 
-def duplicate_finder(start_folder):
+def duplicate_finder(start_folder, to_match=None):
     """
     Finds all images in the starting folder and recursively searches lower
     folders.
@@ -36,10 +39,14 @@ def duplicate_finder(start_folder):
     there filenames in the same array.
 
     Picture extensions included: .jpg, .png, .jpeg
+
+    if a picture path is given in to_match its hash and number of matches will
+    also be returned. Assuming the picture is within the folder being checked.
     """
 
     pics = defaultdict(list)
     num_checked = 0
+    to_match_key = None
 
     for root, dirs, files in os.walk(start_folder, topdown=False):
         for name in files:
@@ -63,7 +70,14 @@ def duplicate_finder(start_folder):
 
                 pics[key].append(file_path)
 
+                if to_match is not None and path_equal(to_match, file_path):
+                    to_match_key = key
+            else:
+                print('not used:', name)
+
     print('{} pictures hashed.'.format(num_checked))
+    if to_match_key is not None:
+        return pics, (to_match_key, len(pics[to_match_key]))
     return pics
 
 
