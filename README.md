@@ -1,2 +1,2 @@
 # image-organizer
-Organize my personal pictures using unsupervised learning techniques.
+Collection of functions to organize my personal pictures.
