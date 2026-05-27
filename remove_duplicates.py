@@ -1,36 +1,10 @@
 import os
-import hashlib
-from collections import defaultdict
+import bin.display as display
+from bin.find_images import image_finder
+from bin.hasher_classes import exact_hasher, approx_image_hasher
 
 
-picture_extensions = set(['jpg', 'jpeg', 'png'])
-BLOCKSIZE = 65536
-
-
-def path_equal(path1, path2):
-    return os.path.normcase(os.path.normpath(path1)) == os.path.normcase(os.path.normpath(path2))
-
-
-def ext_finder(start_folder):
-    """
-    Finds all the extensions in the folder and recursively searches lower
-    folders.
-    """
-
-    ext_list = set()
-    num_checked = 0
-
-    for root, dirs, files in os.walk(start_folder, topdown=False):
-        for name in files:
-            num_checked += 1
-            ext = name.split('.')[-1].lower()
-            ext_list.add(ext)
-
-    print('{} files checked.'.format(num_checked))
-    return ext_list
-
-
-def duplicate_finder(start_folder, to_match=None):
+def duplicate_finder(start_folder, to_match=None, exact=True):
     """
     Finds all images in the starting folder and recursively searches lower
     folders.
@@ -44,68 +18,101 @@ def duplicate_finder(start_folder, to_match=None):
     also be returned. Assuming the picture is within the folder being checked.
     """
 
-    pics = defaultdict(list)
-    num_checked = 0
+    if exact:
+        hasher = exact_hasher()
+    else:
+        hasher = approx_image_hasher()
+
+    image_file_paths = image_finder(start_folder)
+
+    percent_thresh = 1
+    for ind, file_path in enumerate(image_file_paths):
+        hasher.add(file_path)
+
+        if 100*ind/len(image_file_paths) >= percent_thresh:
+            print(f'{percent_thresh}% of images hashed.')
+            percent_thresh += 1
+
+    pics_dict = hasher.get_hash_dict()
+
+    # Check for match if its needed
     to_match_key = None
+    if to_match is not None:
+        to_match_key = hasher.find(to_match)
 
-    for root, dirs, files in os.walk(start_folder, topdown=False):
-        for name in files:
-            ext = name.split('.')[-1].lower()
-            if ext in picture_extensions:
-                num_checked += 1
-                if num_checked % 100 == 0:
-                    print(num_checked)
-
-                file_path = os.path.join(root, name)
-
-                hasher = hashlib.md5()
-
-                with open(file_path, 'rb') as image_file:
-                    buf = image_file.read(BLOCKSIZE)
-                    while len(buf) > 0:
-                        hasher.update(buf)
-                        buf = image_file.read(BLOCKSIZE)
-
-                    key = hasher.hexdigest()
-
-                pics[key].append(file_path)
-
-                if to_match is not None and path_equal(to_match, file_path):
-                    to_match_key = key
-            else:
-                print('not used:', name)
-
-    print('{} pictures hashed.'.format(num_checked))
     if to_match_key is not None:
-        return pics, (to_match_key, len(pics[to_match_key]))
-    return pics
+        return pics_dict, (to_match_key, len(pics_dict[to_match_key]))
+    return pics_dict
+
+
+def matches_filters(filenames, filters):
+    """
+    Return True if any filename contains any string from the filters list.
+    Otherwise False.
+    """
+    for f in filters:
+        for fname in filenames:
+            if f in fname:
+                return True
+    return False
+
+
+def remove_with_check(filename):
+    check = input(f'File {filename} will be removed. Enter anything to cancel:')
+    if len(check) == 0:
+        os.remove(filename)
+        return True
+    return False
 
 
 if __name__ == '__main__':
-    # print(ext_finder('D:\\Bryce\\Dropbox\\pictures'))
+    # path = '.\\Test\\approx_match_test'
+    path = 'D:\\Bryce\\Dropbox\\pictures'
+    filter_ignored_files = ['copies', 'Animals']
 
-    # path = 'D:\\Bryce\\Dropbox\\pictures\\Animals\\Our pets\\Brownie'
-    path = '.'
-    pics = duplicate_finder(path)
+    pics = duplicate_finder(path, exact=False)
     print('Done hashing')
 
-    num_duplicated_pics = 0
-
+    dups = []
     for p_list in pics.values():
-        if len(p_list) > 1:
-            num_duplicated_pics += 1
+        if len(p_list) > 1 and not matches_filters(p_list, filter_ignored_files):
+            dups.append(p_list)
 
-            # can show images to prove they are the same
-            #for p in p_list:
-            #    image = Image.open(p)
-            #    image.show()
+    print(f"Number of picture groups: {len(dups)}")
 
-            print(p_list)
-            keep = input('Enter indices to keep separated by spaces: ')
-            if not keep == '-1':
-                keep = [int(x) for x in keep.split(' ')]
-                for i, p in enumerate(p_list):
-                    if i not in keep:
-                        os.remove(p)
+    removed = []
+    for p_list in dups:
+        # print all paths for duplicates
+        print(p_list)
+        # Show images to prove they are the same/similar
+        display.show_image_list(p_list)
 
-    print(num_duplicated_pics)
+        """
+        # delete the duplicated pictures with input...
+        remove = input('Enter indices from list to remove separated by spaces (-1 to keep all): ')
+        if remove != '-1':
+            remove = [int(x) for x in remove.split(' ')]
+            for i, p in enumerate(p_list):
+                if i in remove:
+                    r = remove_with_check(p)
+                    if r:
+                        removed.append(p)
+        """
+        """
+        # mass picture import delete
+        exists_outside = False
+        for p in p_list:
+            if 'mass picture import' not in p.split('\\'):
+                exists_outside = True
+
+        #print(p_list)
+
+        if exists_outside:
+            for p in p_list:
+                if 'mass picture import' in p.split('\\'):
+                    os.remove(p)
+                    removed.append(p)
+        """
+
+    print(removed)
+
