@@ -2,7 +2,7 @@ from PIL import Image
 from collections import defaultdict
 import hashlib
 import imagehash
-from disjoint_sets import disjoint_sets
+from bin.disjoint_sets import disjoint_sets
 
 
 class exact_hasher:
